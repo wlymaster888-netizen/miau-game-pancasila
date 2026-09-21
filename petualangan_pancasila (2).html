@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Petualangan Pancasila Kelas 1 SD</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            overflow: hidden; /* Prevent scrolling on mobile */
+            touch-action: none; /* Prevent swipe-to-refresh */
+            background-color: #87CEEB; /* Sky blue */
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* Bouncing animation for markers */
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-bounce-slow {
+            animation: bounce 1.5s infinite;
+        }
+        /* Medal shine effect */
+        @keyframes shine {
+            0% { transform: translateX(-100%) rotate(45deg); }
+            100% { transform: translateX(200%) rotate(45deg); }
+        }
+        .shine-effect::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 50%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.4);
+            transform: skewX(-20deg);
+            animation: shine 2s infinite;
+        }
+    </style>
+</head>
+<body class="relative w-full h-screen">
+
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI Overlay: Score -->
+    <div id="ui-layer" class="absolute top-0 left-0 w-full p-3 flex justify-between items-start pointer-events-none z-10">
+        <div class="bg-white/90 backdrop-blur-sm border-2 md:border-4 border-yellow-400 rounded-xl md:rounded-2xl px-3 md:px-6 py-1.5 md:py-2 shadow-lg flex items-center gap-2 md:gap-3">
+            <svg class="w-6 h-6 md:w-8 md:h-8 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+            </svg>
+            <span class="text-lg md:text-2xl font-bold text-gray-800">Skor: <span id="scoreValue" class="text-blue-600">0</span></span>
+        </div>
+        <div class="bg-white/90 backdrop-blur-sm border-2 md:border-4 border-green-400 rounded-xl md:rounded-2xl px-3 md:px-4 py-1.5 md:py-2 shadow-lg text-sm md:text-lg font-bold text-gray-800">
+            Misi: <span id="progressValue" class="text-green-600">0</span>/16
+        </div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="startScreen" class="absolute inset-0 bg-blue-500 flex flex-col items-center justify-center z-50 text-white p-4 overflow-y-auto">
+        <h1 class="text-3xl md:text-6xl font-black text-center mb-3 drop-shadow-lg text-yellow-300">Petualangan<br>Pancasila & Negara</h1>
+        <p class="text-base md:text-2xl mb-6 text-center max-w-md font-bold">Jelajahi peta, temukan 16 pos lambang negara & Presiden kita!</p>
+        
+        <div class="bg-white text-gray-800 p-4 md:p-6 rounded-3xl shadow-xl max-w-sm w-full mb-6">
+            <h2 class="text-lg md:text-xl font-bold mb-2 text-center text-blue-600">Cara Bermain:</h2>
+            <ul class="text-sm md:text-lg space-y-2 font-semibold">
+                <li class="flex items-center gap-2">🕹️ Gunakan D-Pad di layar HP.</li>
+                <li class="flex items-center gap-2">🧭 Ikuti panah penunjuk arah.</li>
+                <li class="flex items-center gap-2">📍 Jawab pertanyaan di pos bercahaya!</li>
+            </ul>
+        </div>
+
+        <button id="btnStart" class="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 text-xl md:text-2xl font-black py-3 px-10 md:py-4 md:px-12 rounded-full shadow-[0_6px_0_#b45309] active:shadow-[0_0px_0_#b45309] active:translate-y-[6px] transition-all">
+            MULAILAH!
+        </button>
+    </div>
+
+    <!-- Quiz Modal -->
+    <div id="quizModal" class="hidden absolute inset-0 bg-black/60 flex items-center justify-center z-40 p-3 overflow-y-auto">
+        <div class="bg-white border-4 md:border-8 border-blue-400 rounded-2xl md:rounded-3xl p-4 md:p-6 w-full max-w-xl transform transition-all shadow-2xl relative my-auto">
+            <div class="absolute -top-5 md:-top-6 left-1/2 -translate-x-1/2 w-max bg-yellow-400 text-yellow-900 font-bold px-4 md:px-6 py-1.5 md:py-2 rounded-full border-2 md:border-4 border-white shadow-md text-base md:text-xl whitespace-nowrap">
+                Misi: <span id="qSilaNum">1</span>
+            </div>
+            
+            <h2 id="qText" class="text-lg md:text-3xl font-bold text-center text-gray-800 mt-5 md:mt-6 mb-4 md:mb-6 leading-snug">
+                Apa lambang dari Sila ke-1?
+            </h2>
+            
+            <div id="optionsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <!-- Options injected via JS -->
+            </div>
+            
+            <!-- Feedback Message -->
+            <div id="feedbackMsg" class="hidden mt-4 text-center text-xl md:text-2xl font-black p-3 rounded-xl"></div>
+        </div>
+    </div>
+
+    <!-- Win Screen -->
+    <div id="winScreen" class="hidden absolute inset-0 bg-green-500/95 flex flex-col items-center justify-center z-50 text-white p-4">
+        <div class="relative w-36 h-36 md:w-48 md:h-48 mb-6 shine-effect overflow-hidden rounded-full border-6 md:border-8 border-yellow-300 shadow-2xl bg-yellow-400 flex items-center justify-center">
+            <!-- Simple SVG Medal -->
+            <svg class="w-24 h-24 md:w-32 md:h-32 text-yellow-100" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 15.2l-3.5 2.1.9-4-3-2.6 4.1-.3L12 6.7l1.5 3.7 4.1.3-3 2.6.9 4-3-2.1z"/>
+            </svg>
+            <div class="absolute inset-0 flex items-center justify-center">
+                <span class="text-3xl md:text-4xl font-black text-yellow-800 drop-shadow-md">HEBAT!</span>
+            </div>
+        </div>
+        
+        <h1 class="text-4xl md:text-5xl font-black text-center mb-3 drop-shadow-lg text-yellow-200 animate-bounce-slow">SELAMAT!</h1>
+        <p class="text-lg md:text-2xl text-center max-w-lg px-4 font-bold mb-6">Kamu berhasil menyelesaikan semua misi kebangsaan dan mendapatkan Medali Emas!</p>
+        
+        <button id="btnRestart" class="bg-white hover:bg-gray-100 text-green-700 text-lg md:text-xl font-black py-3 px-8 md:px-10 rounded-full shadow-[0_6px_0_#d1d5db] active:shadow-[0_0px_0_#d1d5db] active:translate-y-[6px] transition-all">
+            MAIN LAGI
+        </button>
+    </div>
+
+    <!-- Mobile Controls (D-Pad) Optimized for Mobile Screen -->
+    <div id="dpad" class="absolute bottom-4 left-4 w-36 h-36 md:hidden opacity-80 z-20">
+        <div class="relative w-full h-full bg-white/40 rounded-full shadow-lg border-2 border-white/60 touch-none">
+            <!-- Up -->
+            <button id="btnUp" class="absolute top-1.5 left-1/2 -translate-x-1/2 w-10 h-10 bg-white rounded-full flex justify-center items-center shadow touch-none active:bg-blue-300">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
+            </button>
+            <!-- Down -->
+            <button id="btnDown" class="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-10 h-10 bg-white rounded-full flex justify-center items-center shadow touch-none active:bg-blue-300">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            <!-- Left -->
+            <button id="btnLeft" class="absolute left-1.5 top-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full flex justify-center items-center shadow touch-none active:bg-blue-300">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7"></path></svg>
+            </button>
+            <!-- Right -->
+            <button id="btnRight" class="absolute right-1.5 top-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full flex justify-center items-center shadow touch-none active:bg-blue-300">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI Elements
+        const startScreen = document.getElementById('startScreen');
+        const btnStart = document.getElementById('btnStart');
+        const scoreValue = document.getElementById('scoreValue');
+        const progressValue = document.getElementById('progressValue');
+        const quizModal = document.getElementById('quizModal');
+        const winScreen = document.getElementById('winScreen');
+        const btnRestart = document.getElementById('btnRestart');
+        
+        // Quiz Elements
+        const qSilaNum = document.getElementById('qSilaNum');
+        const qText = document.getElementById('qText');
+        const optionsContainer = document.getElementById('optionsContainer');
+        const feedbackMsg = document.getElementById('feedbackMsg');
+
+        // Game State
+        let gameState = 'START'; // START, PLAYING, QUIZ, WIN
+        let score = 0;
+        let progress = 0;
+        let currentStation = null;
+        let lastTime = 0;
+
+        // Player Object
+        const player = {
+            x: 50,
+            y: 50,
+            size: 40,
+            speed: 250, // pixels per second
+            color: '#ef4444', // Red shirt
+            vx: 0,
+            vy: 0,
+            facingRight: true,
+            wobble: 0
+        };
+
+        // Inputs
+        const keys = {
+            ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
+            w: false, s: false, a: false, d: false
+        };
+        const touchBtns = { up: false, down: false, left: false, right: false };
+
+        // High quality inline SVGs for the quiz options
+        const svgs = {
+            'Bintang': `<svg viewBox="0 0 100 100" class="w-full h-full p-2 drop-shadow-md"><polygon points="50,5 61,39 97,39 68,59 79,95 50,74 21,95 32,59 3,39 39,39" fill="#FBBF24" stroke="#B45309" stroke-width="2"/></svg>`,
+            'Rantai': `<svg viewBox="0 0 100 100" class="w-full h-full p-2 drop-shadow-md">
+                <circle cx="30" cy="50" r="15" fill="none" stroke="#FBBF24" stroke-width="8"/>
+                <rect x="40" y="35" width="20" height="30" rx="10" fill="none" stroke="#FBBF24" stroke-width="8"/>
+                <circle cx="70" cy="50" r="15" fill="none" stroke="#FBBF24" stroke-width="8"/>
+            </svg>`,
+            'Pohon Beringin': `<svg viewBox="0 0 100 100" class="w-full h-full p-2 drop-shadow-md">
+                <rect x="40" y="50" width="20" height="45" fill="#8B4513" rx="5"/>
+                <circle cx="50" cy="35" r="25" fill="#22C55E"/>
+                <circle cx="30" cy="45" r="20" fill="#22C55E"/>
+                <circle cx="70" cy="45" r="20" fill="#22C55E"/>
+                <path d="M 40 50 Q 40 70 35 90 M 60 50 Q 60 70 65 90" stroke="#8B4513" stroke-width="4" fill="none"/>
+            </svg>`,
+            'Kepala Banteng': `<svg viewBox="0 0 100 100" class="w-full h-full p-2 drop-shadow-md">
+                <rect x="10" y="10" width="80" height="80" fill="#EF4444" rx="10"/>
+                <path d="M 30 40 Q 50 60 70 40 L 80 20 Q 50 30 20 20 Z" fill="#111827"/>
+                <circle cx="40" cy="45" r="3" fill="white"/>
+                <circle cx="60" cy="45" r="3" fill="white"/>
+                <path d="M 45 60 Q 50 65 55 60" stroke="white" stroke-width="2" fill="none"/>
+            </svg>`,
+            'Padi dan Kapas': `<svg viewBox="0 0 100 100" class="w-full h-full p-2 drop-shadow-md">
+                <!-- Stalks -->
+                <path d="M 40 90 Q 20 50 40 10" stroke="#16A34A" stroke-width="4" fill="none"/>
+                <path d="M 60 90 Q 80 50 60 10" stroke="#16A34A" stroke-width="4" fill="none"/>
+                <!-- Padi (Rice) -->
+                <ellipse cx="35" cy="80" rx="4" ry="8" fill="#FBBF24" transform="rotate(-30 35 80)"/>
+                <ellipse cx="28" cy="65" rx="4" ry="8" fill="#FBBF24" transform="rotate(-45 28 65)"/>
+                <ellipse cx="26" cy="50" rx="4" ry="8" fill="#FBBF24" transform="rotate(-60 26 50)"/>
+                <ellipse cx="30" cy="35" rx="4" ry="8" fill="#FBBF24" transform="rotate(-45 30 35)"/>
+                <ellipse cx="38" cy="20" rx="4" ry="8" fill="#FBBF24" transform="rotate(-20 38 20)"/>
+                <!-- Kapas (Cotton) -->
+                <circle cx="65" cy="80" r="6" fill="white" stroke="#16A34A" stroke-width="2"/>
+                <circle cx="72" cy="65" r="6" fill="white" stroke="#16A34A" stroke-width="2"/>
+                <circle cx="74" cy="50" r="6" fill="white" stroke="#16A34A" stroke-width="2"/>
+                <circle cx="70" cy="35" r="6" fill="white" stroke="#16A34A" stroke-width="2"/>
+                <circle cx="62" cy="20" r="6" fill="white" stroke="#16A34A" stroke-width="2"/>
+            </svg>`
+        };
+
+        // Database Foto Presiden (Wikimedia Commons)
+        const presidentPhotos = {
+            "Ir. Soekarno": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Presiden_Sukarno.jpg/300px-Presiden_Sukarno.jpg",
+            "Soeharto": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/President_Suharto%2C_1993.jpg/300px-President_Suharto%2C_1993.jpg",
+            "B.J. Habibie": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f1/Bacharuddin_Jusuf_Habibie_official_portrait.jpg/300px-Bacharuddin_Jusuf_Habibie_official_portrait.jpg",
+            "Abdurrahman Wahid": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/President_Abdurrahman_Wahid_-_Indonesia.jpg/300px-President_Abdurrahman_Wahid_-_Indonesia.jpg",
+            "Megawati": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/President_Megawati_Sukarnoputri_-_Indonesia.jpg/300px-President_Megawati_Sukarnoputri_-_Indonesia.jpg",
+            "Susilo Bambang Y.": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Susilo_Bambang_Yudhoyono_official_portrait.jpg/300px-Susilo_Bambang_Yudhoyono_official_portrait.jpg",
+            "Joko Widodo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Joko_Widodo_2019_official_portrait.jpg/300px-Joko_Widodo_2019_official_portrait.jpg",
+            "Prabowo Subianto": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/Prabowo_Subianto_2024_official_portrait.jpg/300px-Prabowo_Subianto_2024_official_portrait.jpg",
+            "R.A. Kartini": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Kartini_portrait.jpg/300px-Kartini_portrait.jpg",
+            "Cut Nyak Dien": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Cut_Nyak_Dhien.jpg/300px-Cut_Nyak_Dhien.jpg"
+        };
+
+        // Quiz Data
+        const quizData = [
+            // Pancasila
+            { type: "Pancasila", text: "Ketuhanan Yang Maha Esa. Manakah lambang Sila ke-1?", correct: "Bintang", options: ["Bintang", "Rantai", "Pohon Beringin"] },
+            { type: "Pancasila", text: "Kemanusiaan yang Adil dan Beradab. Apa lambang Sila ke-2?", correct: "Rantai", options: ["Kepala Banteng", "Rantai", "Padi dan Kapas"] },
+            { type: "Pancasila", text: "Persatuan Indonesia. Manakah lambang Sila ke-3?", correct: "Pohon Beringin", options: ["Bintang", "Pohon Beringin", "Kepala Banteng"] },
+            { type: "Pancasila", text: "Kerakyatan yang Dipimpin oleh Hikmat... Apa lambang Sila ke-4?", correct: "Kepala Banteng", options: ["Padi dan Kapas", "Rantai", "Kepala Banteng"] },
+            { type: "Pancasila", text: "Keadilan Sosial bagi Seluruh Rakyat Indonesia. Apa lambang Sila ke-5?", correct: "Padi dan Kapas", options: ["Padi dan Kapas", "Bintang", "Pohon Beringin"] },
+            
+            // Simbol Negara
+            { type: "Simbol Negara", text: "Apa lambang negara kita?", correct: "🦅 Burung Garuda", options: ["🦅 Burung Garuda", "🕊️ Burung Merpati", "🐓 Ayam Jago"] },
+            { type: "Simbol Negara", text: "Apa warna bendera kebanggaan Indonesia?", correct: "🇮🇩 Merah Putih", options: ["🇮🇩 Merah Putih", "🇵🇱 Putih Merah", "🏴‍☠️ Hitam Putih"] },
+            { type: "Simbol Negara", text: "Apa judul lagu kebangsaan kita?", correct: "🎵 Indonesia Raya", options: ["🎵 Indonesia Raya", "🎵 Balonku", "🎵 Halo Bandung"] },
+            
+            // Presiden (Update teks untuk dipasangkan dengan Foto)
+            { type: "Presiden 1", text: "Siapa Bapak Proklamator sekaligus Presiden Pertama kita?", correct: "Ir. Soekarno", options: ["Ir. Soekarno", "B.J. Habibie", "Joko Widodo"] },
+            { type: "Presiden 2", text: "Siapa Presiden Kedua Indonesia?", correct: "Soeharto", options: ["Soeharto", "Megawati", "Prabowo Subianto"] },
+            { type: "Presiden 3", text: "Siapa Presiden Ketiga yang pintar membuat pesawat?", correct: "B.J. Habibie", options: ["B.J. Habibie", "Abdurrahman Wahid", "Ir. Soekarno"] },
+            { type: "Presiden 4", text: "Siapa Presiden Keempat (Gus Dur)?", correct: "Abdurrahman Wahid", options: ["Abdurrahman Wahid", "Joko Widodo", "Soeharto"] },
+            { type: "Presiden 5", text: "Siapa Presiden Kelima dan perempuan pertama kita?", correct: "Megawati", options: ["Megawati", "R.A. Kartini", "Cut Nyak Dien"] },
+            { type: "Presiden 6", text: "Siapa Presiden Keenam Indonesia?", correct: "Susilo Bambang Y.", options: ["Susilo Bambang Y.", "Prabowo Subianto", "B.J. Habibie"] },
+            { type: "Presiden 7", text: "Siapa Presiden Ketujuh Indonesia?", correct: "Joko Widodo", options: ["Joko Widodo", "Soeharto", "Abdurrahman Wahid"] },
+            { type: "Presiden 8", text: "Siapa Presiden Kedelapan Indonesia?", correct: "Prabowo Subianto", options: ["Prabowo Subianto", "Susilo Bambang Y.", "Ir. Soekarno"] }
+        ];
+
+        // Map and Camera configuration
+        const WORLD_WIDTH = 3000;
+        const WORLD_HEIGHT = 3000;
+        const camera = { x: 0, y: 0 };
+        const decor = []; // For background grass/bushes
+
+        // Stations array
+        let stations = [];
+
+        function initStations() {
+            stations = [];
+            decor.length = 0;
+            
+            // Generate some background decorations
+            for(let i=0; i<200; i++) {
+                decor.push({
+                    x: Math.random() * WORLD_WIDTH,
+                    y: Math.random() * WORLD_HEIGHT,
+                    size: 15 + Math.random() * 25,
+                    type: Math.random() > 0.5 ? 'grass' : 'bush'
+                });
+            }
+
+            // Distribute stations randomly but spaced out
+            const colors = ['#FBBF24', '#DC2626', '#16A34A', '#1E3A8A', '#FCD34D', '#9333EA', '#06B6D4', '#EC4899'];
+            
+            quizData.forEach((data, index) => {
+                let valid = false;
+                let x, y;
+                // Find a spot that is not too close to other stations
+                while(!valid) {
+                    x = 200 + Math.random() * (WORLD_WIDTH - 400);
+                    y = 200 + Math.random() * (WORLD_HEIGHT - 400);
+                    valid = true;
+                    for(let st of stations) {
+                        const dist = Math.sqrt(Math.pow(st.x - x, 2) + Math.pow(st.y - y, 2));
+                        if(dist < 350) { 
+                            valid = false;
+                            break;
+                        }
+                    }
+                }
+                
+                let emojiIcon = '⭐';
+                if (data.type.includes('Presiden')) emojiIcon = '🧑‍💼';
+                else if (data.type === 'Simbol Negara') emojiIcon = '🇮🇩';
+
+                stations.push({
+                    id: index + 1,
+                    x: x,
+                    y: y,
+                    radius: 65,
+                    color: colors[index % colors.length],
+                    completed: false,
+                    data: data,
+                    emoji: emojiIcon
+                });
+            });
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // Keyboard Inputs
+        window.addEventListener('keydown', (e) => {
+            if(keys.hasOwnProperty(e.key)) keys[e.key] = true;
+        });
+        window.addEventListener('keyup', (e) => {
+            if(keys.hasOwnProperty(e.key)) keys[e.key] = false;
+        });
+
+        // Touch Controls Setup
+        function setupTouchControl(btnId, dir) {
+            const btn = document.getElementById(btnId);
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); touchBtns[dir] = true; });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); touchBtns[dir] = false; });
+        }
+        setupTouchControl('btnUp', 'up');
+        setupTouchControl('btnDown', 'down');
+        setupTouchControl('btnLeft', 'left');
+        setupTouchControl('btnRight', 'right');
+
+        // UI Buttons
+        btnStart.addEventListener('click', startGame);
+        btnRestart.addEventListener('click', startGame);
+
+        function startGame() {
+            startScreen.classList.add('hidden');
+            winScreen.classList.add('hidden');
+            score = 0;
+            progress = 0;
+            scoreValue.innerText = score;
+            progressValue.innerText = progress;
+            initStations();
+            
+            // Place player in center of the huge world
+            player.x = WORLD_WIDTH / 2;
+            player.y = WORLD_HEIGHT / 2;
+            
+            gameState = 'PLAYING';
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function triggerQuiz(station) {
+            gameState = 'QUIZ';
+            currentStation = station;
+            
+            // Populate Modal
+            qSilaNum.innerText = station.data.type;
+            qText.innerText = station.data.text;
+            
+            optionsContainer.innerHTML = '';
+            feedbackMsg.classList.add('hidden');
+            feedbackMsg.className = 'hidden mt-4 text-center text-xl md:text-2xl font-black p-3 rounded-xl';
+
+            // Shuffle options
+            const shuffledOptions = [...station.data.options].sort(() => Math.random() - 0.5);
+
+            shuffledOptions.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "flex flex-col items-center justify-center p-3 bg-gray-50 border-2 md:border-4 border-gray-200 rounded-xl md:rounded-2xl hover:bg-blue-50 hover:border-blue-400 active:scale-95 transition-all focus:outline-none min-h-[120px] md:min-h-[160px]";
+                
+                const iconDiv = document.createElement('div');
+                
+                // Cek jika teks opsi adalah nama Presiden/Pahlawan yang memiliki foto
+                if (presidentPhotos[opt]) {
+                    iconDiv.className = "w-16 h-16 md:w-32 md:h-32 mb-1.5 md:mb-2 rounded-full overflow-hidden border-2 md:border-4 border-white shadow-md bg-gray-200 shrink-0";
+                    iconDiv.innerHTML = `<img src="${presidentPhotos[opt]}" alt="${opt}" class="w-full h-full object-cover" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'text-4xl md:text-6xl flex items-center justify-center h-full\\'>🧑‍💼</span>';">`;
+                } 
+                // Cek jika teks opsi adalah lambang (SVG)
+                else if (svgs[opt]) {
+                    iconDiv.className = "w-16 h-16 md:w-32 md:h-32 mb-1.5 md:mb-2";
+                    iconDiv.innerHTML = svgs[opt]; 
+                } 
+                // Jika lainnya, extract Emojinya saja
+                else {
+                    iconDiv.className = "text-4xl md:text-7xl mb-1.5 md:mb-2 drop-shadow-md";
+                    iconDiv.innerText = opt.split(' ')[0]; 
+                }
+                
+                const textSpan = document.createElement('span');
+                textSpan.className = "text-base md:text-xl font-bold text-gray-700 text-center leading-tight mt-1 md:mt-2";
+                textSpan.innerText = (svgs[opt] || presidentPhotos[opt]) ? opt : opt.substring(opt.indexOf(' ') + 1).trim(); 
+                
+                btn.appendChild(iconDiv);
+                btn.appendChild(textSpan);
+                
+                btn.onclick = () => checkAnswer(opt, btn);
+                optionsContainer.appendChild(btn);
+            });
+            
+            quizModal.classList.remove('hidden');
+        }
+
+        function checkAnswer(selected, btnElement) {
+            if (gameState !== 'QUIZ') return;
+            
+            // Disable all buttons
+            Array.from(optionsContainer.children).forEach(b => b.disabled = true);
+
+            if (selected === currentStation.data.correct) {
+                // Correct!
+                btnElement.classList.remove('border-gray-200', 'bg-gray-50', 'hover:border-blue-400');
+                btnElement.classList.add('border-green-500', 'bg-green-100');
+                
+                feedbackMsg.innerText = "YAY! Jawabanmu Benar! 🌟";
+                feedbackMsg.classList.remove('hidden');
+                feedbackMsg.classList.add('bg-green-200', 'text-green-800');
+                
+                score += 20;
+                progress += 1;
+                scoreValue.innerText = score;
+                progressValue.innerText = progress;
+                currentStation.completed = true;
+
+                setTimeout(() => {
+                    closeQuiz();
+                    if(progress === 16) {
+                        showWinScreen();
+                    }
+                }, 2000);
+            } else {
+                // Incorrect
+                btnElement.classList.remove('border-gray-200', 'bg-gray-50', 'hover:border-blue-400');
+                btnElement.classList.add('border-red-500', 'bg-red-100');
+                
+                feedbackMsg.innerText = "Ups! Kurang tepat. Coba lagi yuk! 😊";
+                feedbackMsg.classList.remove('hidden');
+                feedbackMsg.classList.add('bg-red-200', 'text-red-800');
+                
+                setTimeout(() => {
+                    closeQuiz(); // Let them try again by walking into it again
+                }, 2000);
+            }
+        }
+
+        function closeQuiz() {
+            quizModal.classList.add('hidden');
+            // Move player slightly away so they don't immediately trigger it again
+            player.y += 20; 
+            gameState = 'PLAYING';
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function showWinScreen() {
+            gameState = 'WIN';
+            winScreen.classList.remove('hidden');
+        }
+
+        function update(dt) {
+            // Calculate velocity
+            player.vx = 0;
+            player.vy = 0;
+
+            if (keys.ArrowUp || keys.w || touchBtns.up) player.vy = -1;
+            if (keys.ArrowDown || keys.s || touchBtns.down) player.vy = 1;
+            if (keys.ArrowLeft || keys.a || touchBtns.left) player.vx = -1;
+            if (keys.ArrowRight || keys.d || touchBtns.right) player.vx = 1;
+
+            // Normalize velocity for diagonal movement
+            if (player.vx !== 0 && player.vy !== 0) {
+                const len = Math.sqrt(player.vx * player.vx + player.vy * player.vy);
+                player.vx /= len;
+                player.vy /= len;
+            }
+
+            // Move player
+            player.x += player.vx * player.speed * dt;
+            player.y += player.vy * player.speed * dt;
+            
+            if (player.vx > 0) player.facingRight = true;
+            if (player.vx < 0) player.facingRight = false;
+            
+            // Animation Wobble
+            if (player.vx !== 0 || player.vy !== 0) {
+                player.wobble += 15 * dt;
+            } else {
+                player.wobble = 0;
+            }
+
+            // Constrain to world bounds
+            player.size = Math.min(canvas.width, canvas.height) * 0.05; // responsive size
+            if(player.size < 25) player.size = 25;
+            
+            if (player.x < player.size) player.x = player.size;
+            if (player.x > WORLD_WIDTH - player.size) player.x = WORLD_WIDTH - player.size;
+            if (player.y < player.size) player.y = player.size;
+            if (player.y > WORLD_HEIGHT - player.size) player.y = WORLD_HEIGHT - player.size;
+
+            // Update Camera to follow player smoothly
+            camera.x += (player.x - canvas.width / 2 - camera.x) * 5 * dt;
+            camera.y += (player.y - canvas.height / 2 - camera.y) * 5 * dt;
+
+            // Clamp camera to world bounds
+            if (camera.x < 0) camera.x = 0;
+            if (camera.x > WORLD_WIDTH - canvas.width) camera.x = WORLD_WIDTH - canvas.width;
+            if (camera.y < 0) camera.y = 0;
+            if (camera.y > WORLD_HEIGHT - canvas.height) camera.y = WORLD_HEIGHT - canvas.height;
+
+            // Check collision with stations
+            stations.forEach(st => {
+                if(st.completed) return; // Skip completed ones
+                
+                const dx = player.x - st.x;
+                const dy = player.y - st.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                // Trigger quiz if close enough
+                if (dist < player.size + st.radius) {
+                    triggerQuiz(st);
+                }
+            });
+        }
+
+        function draw() {
+            // Clear and draw background
+            ctx.fillStyle = '#87CEEB'; // Sky blue
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Apply Camera Translation
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y);
+
+            // Draw decor (grass/bushes) to show movement
+            decor.forEach(d => {
+                ctx.fillStyle = d.type === 'grass' ? '#4ade80' : '#16a34a';
+                ctx.beginPath();
+                ctx.arc(d.x, d.y, d.size, 0, Math.PI*2);
+                ctx.fill();
+            });
+            
+            // Draw Stations
+            const time = performance.now() / 1000;
+            let nearestStation = null;
+            let minDist = Infinity;
+
+            stations.forEach(st => {
+                // Find nearest uncompleted station for the pointer
+                if (!st.completed) {
+                    const dist = Math.sqrt(Math.pow(player.x - st.x, 2) + Math.pow(player.y - st.y, 2));
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearestStation = st;
+                    }
+                }
+
+                ctx.save();
+                ctx.translate(st.x, st.y);
+                
+                if (st.completed) {
+                    // Completed state
+                    ctx.globalAlpha = 0.5;
+                    ctx.fillStyle = '#9CA3AF'; // Gray out
+                    ctx.beginPath();
+                    ctx.arc(0, 0, st.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Draw checkmark
+                    ctx.fillStyle = '#22C55E';
+                    ctx.font = `bold ${st.radius}px Nunito, sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('✅', 0, 0);
+                } else {
+                    // Hovering effect
+                    const hoverY = Math.sin(time * 3 + st.id) * 10;
+                    ctx.translate(0, hoverY);
+                    
+                    // Glow
+                    ctx.shadowColor = st.color;
+                    ctx.shadowBlur = 20;
+                    
+                    // Base Circle
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, st.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.lineWidth = 6;
+                    ctx.strokeStyle = st.color;
+                    ctx.stroke();
+                    
+                    ctx.shadowBlur = 0; // reset shadow
+                    
+                    // Draw Emoji instead of Number
+                    ctx.fillStyle = '#374151';
+                    ctx.font = `bold ${st.radius * 0.7}px Nunito, sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(st.emoji, 0, -st.radius*0.1);
+                    
+                    // Instruction '?'
+                    ctx.fillStyle = '#EF4444';
+                    ctx.font = `bold ${st.radius * 0.5}px Nunito`;
+                    ctx.fillText('?', st.radius * 0.6, -st.radius * 0.6);
+                }
+                
+                ctx.restore();
+            });
+
+            // Draw Pointer Arrow to Nearest Station
+            if (nearestStation && minDist > 200) {
+                const angle = Math.atan2(nearestStation.y - player.y, nearestStation.x - player.x);
+                const pointerDist = player.size + 40;
+                
+                ctx.save();
+                ctx.translate(player.x + Math.cos(angle) * pointerDist, player.y + Math.sin(angle) * pointerDist);
+                ctx.rotate(angle);
+                
+                // Pulsing effect
+                const scale = 1 + Math.sin(time * 8) * 0.2;
+                ctx.scale(scale, scale);
+
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.beginPath();
+                ctx.moveTo(25, 0);
+                ctx.lineTo(-15, 18);
+                ctx.lineTo(-15, -18);
+                ctx.fill();
+                
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Draw Player (Karakter Kucing Lucu)
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            
+            // Wobble (Efek melompat saat jalan)
+            const jumpY = Math.abs(Math.sin(player.wobble)) * -10;
+            ctx.translate(0, jumpY);
+            
+            // Balik arah jika berjalan ke kiri
+            if (!player.facingRight) {
+                ctx.scale(-1, 1);
+            }
+
+            // Bayangan Kucing
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.beginPath();
+            ctx.ellipse(0, player.size, player.size * 0.9, player.size * 0.3, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            const currentTime = performance.now() / 1000;
+            const hx = player.size * 0.3; // Posisi X Kepala
+            const hy = -player.size * 0.3; // Posisi Y Kepala
+            const r = player.size * 0.55; // Ukuran Kepala
+
+            // Ekor (Animasi bergoyang)
+            ctx.lineWidth = player.size * 0.25;
+            ctx.strokeStyle = '#f97316'; // Warna orange kucing
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-player.size * 0.6, player.size * 0.2);
+            ctx.quadraticCurveTo(-player.size * 1.5, player.size * 0.2 + Math.sin(currentTime * 8) * player.size * 0.5, -player.size * 1.2, -player.size * 0.8);
+            ctx.stroke();
+
+            // Kaki Belakang (Digambar di belakang badan)
+            const legSwing = Math.sin(player.wobble) * (player.size * 0.3);
+            ctx.fillStyle = '#ea580c'; // Warna orange lebih gelap untuk dimensi
+            ctx.beginPath(); ctx.ellipse(-player.size * 0.3 - legSwing, player.size * 0.6, player.size * 0.15, player.size * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(player.size * 0.4 - legSwing, player.size * 0.6, player.size * 0.15, player.size * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+
+            // Badan
+            ctx.fillStyle = '#f97316';
+            ctx.beginPath();
+            ctx.ellipse(0, player.size * 0.2, player.size * 0.8, player.size * 0.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Perut (Warna krem)
+            ctx.fillStyle = '#ffedd5';
+            ctx.beginPath();
+            ctx.ellipse(0, player.size * 0.35, player.size * 0.5, player.size * 0.25, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Kaki Depan (Digambar di depan badan)
+            ctx.fillStyle = '#f97316'; 
+            ctx.beginPath(); ctx.ellipse(-player.size * 0.3 + legSwing, player.size * 0.65, player.size * 0.15, player.size * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(player.size * 0.4 + legSwing, player.size * 0.65, player.size * 0.15, player.size * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+
+            // Telinga
+            ctx.fillStyle = '#f97316';
+            ctx.beginPath(); ctx.moveTo(hx - r * 0.7, hy - r * 0.4); ctx.lineTo(hx - r * 0.7, hy - r * 1.3); ctx.lineTo(hx - r * 0.1, hy - r * 0.8); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(hx + r * 0.1, hy - r * 0.8); ctx.lineTo(hx + r * 0.7, hy - r * 1.3); ctx.lineTo(hx + r * 0.7, hy - r * 0.4); ctx.fill();
+            
+            // Bagian dalam telinga (pink)
+            ctx.fillStyle = '#fbcfe8';
+            ctx.beginPath(); ctx.moveTo(hx - r * 0.6, hy - r * 0.5); ctx.lineTo(hx - r * 0.6, hy - r * 1.1); ctx.lineTo(hx - r * 0.2, hy - r * 0.7); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(hx + r * 0.2, hy - r * 0.7); ctx.lineTo(hx + r * 0.6, hy - r * 1.1); ctx.lineTo(hx + r * 0.6, hy - r * 0.5); ctx.fill();
+
+            // Kepala
+            ctx.fillStyle = '#f97316';
+            ctx.beginPath();
+            ctx.arc(hx, hy, r, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Moncong
+            ctx.fillStyle = '#ffedd5';
+            ctx.beginPath();
+            ctx.ellipse(hx + r * 0.3, hy + r * 0.3, r * 0.6, r * 0.4, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Hidung (Pink)
+            ctx.fillStyle = '#f472b6';
+            ctx.beginPath();
+            ctx.ellipse(hx + r * 0.5, hy + r * 0.15, r * 0.15, r * 0.1, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Mata
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(hx, hy - r * 0.1, r * 0.12, 0, Math.PI * 2); // Kiri
+            ctx.arc(hx + r * 0.6, hy - r * 0.1, r * 0.12, 0, Math.PI * 2); // Kanan
+            ctx.fill();
+            
+            // Pantulan cahaya mata (Highlights)
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(hx + r * 0.05, hy - r * 0.15, r * 0.04, 0, Math.PI * 2);
+            ctx.arc(hx + r * 0.65, hy - r * 0.15, r * 0.04, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Kumis Kucing
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(hx - r * 0.2, hy + r * 0.2); ctx.lineTo(hx - r * 0.8, hy + r * 0.1);
+            ctx.moveTo(hx - r * 0.2, hy + r * 0.4); ctx.lineTo(hx - r * 0.8, hy + r * 0.4);
+            ctx.moveTo(hx + r * 0.7, hy + r * 0.2); ctx.lineTo(hx + r * 1.3, hy + r * 0.1);
+            ctx.moveTo(hx + r * 0.7, hy + r * 0.4); ctx.lineTo(hx + r * 1.3, hy + r * 0.4);
+            ctx.stroke();
+
+            ctx.restore(); // Kembalikan state untuk pemain
+            ctx.restore(); // Kembalikan state untuk translasi kamera
+        }
+
+        function gameLoop(timestamp) {
+            if (gameState !== 'PLAYING') return;
+
+            let dt = (timestamp - lastTime) / 1000;
+            if (dt > 0.1) dt = 0.1; // Cap delta time to prevent huge jumps
+            lastTime = timestamp;
+
+            update(dt);
+            draw();
+
+            if (gameState === 'PLAYING') {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+    </script>
+</body>
+</html>
